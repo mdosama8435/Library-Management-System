@@ -1,0 +1,107 @@
+flowchart TD
+    %% =========================================================================
+    %% SHELFLIFE — HIGH-LEVEL UNIVERSITY-SCALE SYSTEM ARCHITECTURE
+    %% Exam Question 3(a): Client, API Layer, Database, Cache, Load Balancer, Queue, CDN
+    %% =========================================================================
+
+    subgraph CLIENT_TIER ["1. Client Tier (500 Campus Libraries & 2M Members)"]
+        SPA["React 19 + TypeScript SPA<br/>(Student Portals, Desk Terminals, Kiosks)"]
+    end
+
+    subgraph EDGE_TIER ["2. Edge & Ingress Tier"]
+        CDN["Global Edge CDN (CloudFront / Cloudflare)<br/>- Static Bundles (HTML/JS/CSS)<br/>- TLS 1.3 Termination & DDoS Shield"]
+        ALB["Application Load Balancer (ALB / NGINX)<br/>- SSL Termination & Path Routing (/api/*)<br/>- Round-Robin / Least-Connections & Health Checks"]
+    end
+
+    subgraph APP_TIER ["3. Stateless API Tier (Horizontal Pod Autoscaling: 10 -> 80 Pods)"]
+        API1["Node.js / Express Pod 1<br/>(Stateless REST API)"]
+        API2["Node.js / Express Pod 2<br/>(Stateless REST API)"]
+        APIN["Node.js / Express Pod N<br/>(Autoscaled on CPU & Latency)"]
+    end
+
+    subgraph CACHE_TIER ["4. Caching Tier (Catalog Read-Offload)"]
+        REDIS[("Redis Cluster (Master-Replica)<br/>- Key: books:{campusId}:{page}:{genre}:{search}<br/>- TTL: 60s (Display Hint Only)")]
+    end
+
+    subgraph ASYNC_TIER ["5. Asynchronous Processing Tier (Non-Blocking Side Effects)"]
+        MQ["Message Queue (RabbitMQ / AWS SQS)<br/>- Channels: email_queue, audit_queue, alert_queue"]
+        WORKER["Background Worker Pool<br/>- Email Slips, SMS Alerts, Overdue Scans, Audit Logs"]
+    end
+
+    subgraph DB_TIER ["6. Authoritative Database Tier (Sharded MongoDB Cluster)"]
+        MONGOS["Stateless Query Routers (mongos)"]
+        CSRS["Config Server Replica Set (CSRS)<br/>(Cluster Metadata & Chunk Mapping)"]
+
+        subgraph SHARD_A ["Shard 1: Campuses 001 - 150"]
+            P1[("Primary (Writes & Txns)")]
+            S1_1[("Secondary 1 (Reads)")]
+            S1_2[("Secondary 2 (Reads)")]
+        end
+
+        subgraph SHARD_B ["Shard 2: Campuses 151 - 300"]
+            P2[("Primary (Writes & Txns)")]
+            S2_1[("Secondary 1 (Reads)")]
+            S2_2[("Secondary 2 (Reads)")]
+        end
+
+        subgraph SHARD_C ["Shard K: Campuses 301 - 500"]
+            PK[("Primary (Writes & Txns)")]
+            SK_1[("Secondary 1 (Reads)")]
+            SK_2[("Secondary 2 (Reads)")]
+        end
+    end
+
+    %% Client and Edge connections
+    SPA -->|"1. Static Assets GET"| CDN
+    SPA -->|"2. API Requests (/api/*)"| ALB
+    ALB -->|"Dispatch HTTP Requests"| API1
+    ALB -->|"Dispatch HTTP Requests"| API2
+    ALB -->|"Dispatch HTTP Requests"| APIN
+
+    %% Read Path & Cache (Question c)
+    API1 -.->|"Read Path: Cache Lookup"| REDIS
+    API2 -.->|"Read Path: Cache Lookup"| REDIS
+    APIN -.->|"Read Path: Cache Lookup"| REDIS
+    REDIS -.->|"Cache Hit (85-95%)"| API1
+
+    %% Database Path
+    API1 -->|"Cache Miss / Transactions"| MONGOS
+    API2 -->|"Cache Miss / Transactions"| MONGOS
+    APIN -->|"Cache Miss / Transactions"| MONGOS
+
+    MONGOS --- CSRS
+    MONGOS -->|"Targeted by campusId"| P1
+    MONGOS -->|"Targeted by campusId"| P2
+    MONGOS -->|"Targeted by campusId"| PK
+
+    %% Primary Replication
+    P1 -->|"Oplog Sync"| S1_1
+    P1 -->|"Oplog Sync"| S1_2
+    P2 -->|"Oplog Sync"| S2_1
+    P2 -->|"Oplog Sync"| S2_2
+    PK -->|"Oplog Sync"| SK_1
+    PK -->|"Oplog Sync"| SK_2
+
+    %% Asynchronous Queue Path (Question a & e)
+    API1 ==>|"Async Path: Publish Event (Email/Audit)"| MQ
+    API2 ==>|"Async Path: Publish Event (Email/Audit)"| MQ
+    APIN ==>|"Async Path: Publish Event (Email/Audit)"| MQ
+    MQ ==>|"Consume Tasks"| WORKER
+
+    %% Cache Invalidation (Question c)
+    API1 -.->|"Cache Invalidation on Mutation"| REDIS
+
+    %% Class Styling & Legends
+    classDef client fill:#eef2ff,stroke:#6366f1,stroke-width:2px;
+    classDef edge fill:#f0fdf4,stroke:#22c55e,stroke-width:2px;
+    classDef app fill:#fefce8,stroke:#eab308,stroke-width:2px;
+    classDef cache fill:#fef2f2,stroke:#ef4444,stroke-width:2px;
+    classDef async fill:#fdf4ff,stroke:#c026d3,stroke-width:2px;
+    classDef db fill:#ecfeff,stroke:#06b6d4,stroke-width:2px;
+
+    class SPA client;
+    class CDN,ALB edge;
+    class API1,API2,APIN app;
+    class REDIS cache;
+    class MQ,WORKER async;
+    class MONGOS,CSRS,P1,S1_1,S1_2,P2,S2_1,S2_2,PK,SK_1,SK_2 db;

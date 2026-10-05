@@ -24,6 +24,14 @@ ShelfLife is a full-stack library management system designed for college librari
   - Member history with prominent `[ OVERDUE ]` badges and return actions.
   - Port: `http://localhost:5173`
 
+- [`docs/system-design/`](file:///d:/Sem4_project/docs/system-design) — **Question 3 Implementation**
+  - University-scale system design specification (500 campuses, 2M members, 10x semester traffic spike).
+  - High-level multi-tier architecture specification & Mermaid architecture diagram.
+  - MongoDB scaling & compound sharding analysis (`campusId` affinity).
+  - Redis cache-aside read offloading for catalog queries (`GET /api/books`).
+  - Strict concurrency safety analysis for book issuance (`findOneAndUpdate` + ACID transactions).
+  - Horizontal elasticity (HPA) and failure resilience design.
+
 ---
 
 ## Quick Start Instructions
