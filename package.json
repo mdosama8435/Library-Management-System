@@ -1,0 +1,13 @@
+{
+  "name": "shelflife-workspace",
+  "version": "1.0.0",
+  "description": "ShelfLife Library Management System - Root Workspace (Full Stack IA2)",
+  "scripts": {
+    "start": "npm --prefix shelflife-backend start",
+    "dev:backend": "npm --prefix shelflife-backend run dev",
+    "seed": "npm --prefix shelflife-backend run seed",
+    "test:backend": "npm --prefix shelflife-backend test",
+    "dev:frontend": "npm --prefix shelflife-frontend run dev",
+    "build:frontend": "npm --prefix shelflife-frontend run build"
+  }
+}
